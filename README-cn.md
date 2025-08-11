@@ -1,3 +1,5 @@
+[以英文阅读本文 (English)](README.md)
+
 # AI GitHub 周报生成器
 
 此脚本可自动生成一份总结您个人 GitHub 提交历史的周报。它使用 `gh` 命令行工具来获取您最近的提交，并利用 AI 模型（如 DeepSeek、OpenAI 或 OpenRouter）来创建一份简洁、易读的中文报告。

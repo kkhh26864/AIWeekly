@@ -1,3 +1,5 @@
+[Read this document in Chinese (中文)](README-cn.md)
+
 # AI GitHub Weekly Report Generator
 
 This script automatically generates a weekly report summarizing your personal GitHub commit history. It uses the `gh` CLI to fetch your recent commits and an AI model (like DeepSeek, OpenAI, or OpenRouter) to create a concise, human-readable report. The output is in Chinese.
