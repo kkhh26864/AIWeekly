@@ -11,6 +11,7 @@ This script automatically generates a weekly report summarizing your personal Gi
 *   Supports filtering repositories by name (include/exclude).
 *   Allows customizing the report length and time frame (since a specific date or for the last N days).
 *   Supports multiple AI providers (DeepSeek, OpenAI, OpenRouter, and any OpenAI-compatible API).
+*   Optionally sends the generated report to a configured email address.
 
 ## Prerequisites
 
@@ -27,7 +28,7 @@ This script automatically generates a weekly report summarizing your personal Gi
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/AIWeekly.git
+    git clone https://github.com/kkhh26864/AIWeekly
     cd AIWeekly
     ```
 2.  **Install Dependencies:**
@@ -39,26 +40,45 @@ This script automatically generates a weekly report summarizing your personal Gi
     ```bash
     pip install -r requirements.txt
     ```
-3.  **Configure API Key:**
-    You need to provide an API key for the AI service you want to use. This is done via environment variables.
+3.  **Configure Your Environment:**
+    The easiest way to configure your API keys is to use a `.env` file.
 
-    **For DeepSeek (Default):**
-    ```bash
-    export DEEPSEEK_API_KEY="your-deepseek-api-key"
-    ```
+    1.  Copy the example file:
+        ```bash
+        cp .env.example .env
+        ```
+    2.  Edit the `.env` file and add your API key(s):
+        ```dotenv
+        # .env
+        DEEPSEEK_API_KEY="your-deepseek-api-key"
 
-    **For OpenAI:**
-    ```bash
-    export OPENAI_API_KEY="your-openai-api-key"
-    export OPENAI_BASE_URL="https://api.openai.com/v1"
-    export OPENAI_MODEL="gpt-4"
-    ```
+        # If you want to use OpenAI, uncomment and set these
+        # OPENAI_API_KEY="your-openai-api-key"
+        # OPENAI_BASE_URL="https://api.openai.com/v1"
+        # OPENAI_MODEL="gpt-4"
+        ```
 
-    **For OpenRouter:**
-    ```bash
-    export OPENAI_API_KEY="your-openrouter-key"
-    export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
-    export OPENAI_MODEL="anthropic/claude-3.5-sonnet"
+    The script will automatically load these variables when it runs.
+
+    Alternatively, you can still use `export` to set environment variables in your shell. The script will use them if it can't find a `.env` file.
+
+    **Email Configuration (Optional)**
+
+    To have the script email the report, you'll need to add SMTP settings to your `.env` file. If you set the output format to `html`, the email will be sent as an HTML email.
+
+    ```dotenv
+    # .env
+
+    # ... (API keys) ...
+
+    # Email Configuration
+    SMTP_HOST="smtp.example.com"
+    SMTP_PORT=587
+    SMTP_USER="your-email@example.com"
+    SMTP_PASSWORD="your-email-password"
+    EMAIL_FROM="report-sender@example.com"
+    EMAIL_TO="your-boss@example.com"
+    EMAIL_SUBJECT="Weekly GitHub Report"
     ```
 
 ## Usage
@@ -117,4 +137,8 @@ chmod +x ai-weekly.py
 | `--api-key`   | `-k`  | Your AI service API key. Overrides environment variables.                         |         |
 | `--since`     |       | The start date for fetching commits (e.g., "2024-01-15"). Cannot be used with `--days`. |         |
 | `--days`      | `-d`  | The number of days of commit history to include. Cannot be used with `--since`.   | `7`     |
+| `--format`    |       | The output format of the report. Can be `text` or `html`.                     | `text`  |
 | `style`       |       | (Positional) Additional instructions for the AI's writing style (e.g., `简洁的 技术 总结`). |         |
+| `--email`     |       | A flag to enable sending the report via email. Requires SMTP settings in `.env`.  | `false` |
+| `--email-to`  |       | The recipient's email address. Overrides `EMAIL_TO` in the `.env` file.           |         |
+| `--email-subject` |   | The subject of the email. Overrides `EMAIL_SUBJECT` in the `.env` file.         |         |

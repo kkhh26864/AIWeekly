@@ -11,6 +11,7 @@
 *   支持按名称筛选仓库（包含/排除）。
 *   允许自定义报告长度和时间范围（从特定日期开始或最近 N 天）。
 *   支持多种 AI 服务（DeepSeek、OpenAI、OpenRouter 以及任何与 OpenAI 兼容的 API）。
+*   可选地将生成的报告发送到配置的电子邮件地址。
 
 ## 环境要求
 
@@ -27,7 +28,7 @@
 
 1.  **克隆仓库：**
     ```bash
-    git clone https://github.com/your-username/AIWeekly.git
+    git clone https://github.com/kkhh26864/AIWeekly
     cd AIWeekly
     ```
 2.  **安装依赖：**
@@ -39,26 +40,45 @@
     ```bash
     pip install -r requirements.txt
     ```
-3.  **配置 API 密钥：**
-    您需要为您想使用的 AI 服务提供 API 密钥。这通过环境变量完成。
+3.  **配置您的环境：**
+    配置 API 密钥最简单的方式是使用 `.env` 文件。
 
-    **使用 DeepSeek (默认):**
-    ```bash
-    export DEEPSEEK_API_KEY="your-deepseek-api-key"
-    ```
+    1.  复制示例文件：
+        ```bash
+        cp .env.example .env
+        ```
+    2.  编辑 `.env` 文件并填入您的 API 密钥：
+        ```dotenv
+        # .env
+        DEEPSEEK_API_KEY="your-deepseek-api-key"
 
-    **使用 OpenAI:**
-    ```bash
-    export OPENAI_API_KEY="your-openai-api-key"
-    export OPENAI_BASE_URL="https://api.openai.com/v1"
-    export OPENAI_MODEL="gpt-4"
-    ```
+        # 如果您想使用 OpenAI，请取消注释并设置这些变量
+        # OPENAI_API_KEY="your-openai-api-key"
+        # OPENAI_BASE_URL="https://api.openai.com/v1"
+        # OPENAI_MODEL="gpt-4"
+        ```
 
-    **使用 OpenRouter:**
-    ```bash
-    export OPENAI_API_KEY="your-openrouter-key"
-    export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
-    export OPENAI_MODEL="anthropic/claude-3.5-sonnet"
+    脚本运行时会自动加载这些变量。
+
+    当然，您仍然可以在终端中使用 `export` 来设置环境变量。如果脚本找不到 `.env` 文件，它将使用您在终端中设置的环境变量。
+
+    **邮件配置 (可选)**
+
+    要让脚本通过邮件发送报告，您需要在 `.env` 文件中添加 SMTP 设置。如果您将输出格式设置为 `html`，邮件将以 HTML 格式发送。
+
+    ```dotenv
+    # .env
+
+    # ... (API 密钥) ...
+
+    # 邮件配置
+    SMTP_HOST="smtp.example.com"
+    SMTP_PORT=587
+    SMTP_USER="your-email@example.com"
+    SMTP_PASSWORD="your-email-password"
+    EMAIL_FROM="report-sender@example.com"
+    EMAIL_TO="your-boss@example.com"
+    EMAIL_SUBJECT="GitHub 周报"
     ```
 
 ## 使用方法
@@ -117,4 +137,8 @@ chmod +x ai-weekly.py
 | `--api-key` | `-k` | 您的 AI 服务 API 密钥。会覆盖环境变量。                                 |         |
 | `--since`   |      | 获取提交的起始日期 (例如, "2024-01-15")。不能与 `--days` 同时使用。     |         |
 | `--days`    | `-d` | 包含过去多少天的提交历史。不能与 `--since` 同时使用。                   | `7`     |
+| `--format`  |      | 报告的输出格式。可以是 `text` 或 `html`。                               | `text`  |
 | `style`     |      | (位置参数) 对 AI 写作风格的额外要求 (例如, `简洁的 技术 总结`)。        |         |
+| `--email`     |      | 发送邮件的开关。需要在 `.env` 文件中配置 SMTP。                         | `false` |
+| `--email-to`  |      | 收件人的电子邮件地址。会覆盖 `.env` 文件中的 `EMAIL_TO`。               |         |
+| `--email-subject` |   | 邮件主题。会覆盖 `.env` 文件中的 `EMAIL_SUBJECT`。                      |         |

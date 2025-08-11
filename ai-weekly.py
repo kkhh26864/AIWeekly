@@ -64,6 +64,56 @@ from datetime import datetime, timedelta
 import sys
 import argparse
 from openai import OpenAI
+from dotenv import load_dotenv
+import markdown
+
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+# Load environment variables from .env file
+load_dotenv()
+
+
+def send_email(report, args):
+    """Send the report via email."""
+    smtp_host = os.environ.get("SMTP_HOST")
+    smtp_port = os.environ.get("SMTP_PORT")
+    smtp_user = os.environ.get("SMTP_USER")
+    smtp_password = os.environ.get("SMTP_PASSWORD")
+    email_from = os.environ.get("EMAIL_FROM")
+    email_to = args.email_to or os.environ.get("EMAIL_TO")
+    subject = args.email_subject or os.environ.get("EMAIL_SUBJECT", "Weekly Report")
+
+    if not all([smtp_host, smtp_port, smtp_user, smtp_password, email_from, email_to]):
+        log_info("❌ Error: Missing one or more required email environment variables.")
+        log_info("📋 Please configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, EMAIL_FROM, and EMAIL_TO in your .env file.")
+        return
+
+    try:
+        smtp_port = int(smtp_port)
+        msg = MIMEMultipart()
+        msg['From'] = email_from
+        msg['To'] = email_to
+        msg['Subject'] = subject
+
+        email_format = 'plain'
+        report_content = report['raw']
+        if args.format == 'html':
+            email_format = 'html'
+            report_content = report['formatted']
+
+        msg.attach(MIMEText(report_content, email_format, 'utf-8'))
+
+        server = smtplib.SMTP(smtp_host, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        log_info(f"✅ Email sent successfully to {email_to}")
+    except Exception as e:
+        log_info(f"❌ Error sending email: {e}")
+
 
 def log_info(message):
     print(message, file=sys.stderr)
@@ -158,7 +208,7 @@ def generate_system_prompt(max_chars, style_requirements=None):
 - Note backward compatibility considerations and version impacts
 - Recognize architectural decisions and their implications
 
-**Output Format**: Professional technical report suitable for engineering teams, emphasizing progress on significant features and system improvements rather than routine maintenance tasks.
+**Output Format**: Professional technical report suitable for engineering teams, emphasizing progress on significant features and system improvements rather than routine maintenance tasks. The output should be in Markdown format.
 
 **Length**: Comprehensive but concise - focus on substance over length. For Chinese reports, limit to specified character count and single paragraph format when requested."""
 
@@ -250,7 +300,8 @@ def fetch_recent_commits(args):
         else:
             log_info(f"📊 Fetching detailed commit messages for {len(filtered_commits)} commits...")
             style_requirements = " ".join(args.style) if args.style else None
-            return generate_weekly_report(filtered_commits, args.chars, args.api_key, style_requirements)
+            report = generate_weekly_report(filtered_commits, args.chars, args.api_key, style_requirements, args.format)
+            return report
 
     except subprocess.CalledProcessError as e:
         log_info(f"Error running gh command: {e}")
@@ -263,7 +314,7 @@ def fetch_recent_commits(args):
         log_info(f"Unexpected error: {e}")
         sys.exit(1)
 
-def generate_weekly_report(commits, max_chars=500, api_key=None, style_requirements=None):
+def generate_weekly_report(commits, max_chars=500, api_key=None, style_requirements=None, output_format='text'):
     log_info("📝 Preparing commit data for weekly report...")
 
     # Prepare commit data for the report
@@ -326,7 +377,7 @@ def generate_weekly_report(commits, max_chars=500, api_key=None, style_requireme
         log_info("   export OPENAI_API_KEY='your-api-key'")
         log_info("   export OPENAI_BASE_URL='https://api.openai.com/v1'")
         log_info("   export OPENAI_MODEL='gpt-4'")
-        return
+        return None
 
     try:
         client = OpenAI(api_key=api_key, base_url=api_base)
@@ -344,12 +395,18 @@ def generate_weekly_report(commits, max_chars=500, api_key=None, style_requireme
         report_content = response.choices[0].message.content
         log_info(f"📏 Report length: {len(report_content)} characters")
 
+        formatted_report = report_content
+        if output_format == 'html':
+            formatted_report = markdown.markdown(report_content)
+
         # Output the actual report to stdout
         print()
-        print(report_content)
+        print(formatted_report)
+        return {'raw': report_content, 'formatted': formatted_report}
 
     except Exception as e:
         log_info(f"❌ Error generating report: {e}")
+        return None
 
 def main():
     parser = argparse.ArgumentParser(
@@ -375,6 +432,7 @@ def main():
     # Output options
     parser.add_argument('--raw', action='store_true', help='Show raw commit information instead of generating report')
     parser.add_argument('--chars', '-c', type=int, default=500, help='Maximum characters for weekly report (default: 500)')
+    parser.add_argument('--format', choices=['text', 'html'], default='text', help='Output format for the report (default: text)')
 
     # API configuration
     parser.add_argument('--api-key', '-k', help='API key (overrides OPENAI_API_KEY environment variable)')
@@ -383,8 +441,7 @@ def main():
     parser.add_argument('--since', help='Start date for commit search (e.g., "2024-01-15", "01/15/2024", "2024/01/15")')
     parser.add_argument('--days', '-d', type=int, help='Number of days ago to start search (default: 7)')
     
-    # Style customization (positional arguments)
-    parser.add_argument('style', nargs='*', help='Additional writing style requirements (e.g., 简洁的 技术 总结, 详细的 业务 报告)')
+    # Style customization (positional arguments)    parser.add_argument('style', nargs='*', help='Additional writing style requirements (e.g., 简洁的 技术 总结, 详细的 业务 报告)')    # Email options    email_group = parser.add_argument_group('Email Options')    email_group.add_argument('--email', action='store_true', help='Flag to send the generated report via email.')    email_group.add_argument('--email-to', help='Recipient\'s email address (overrides EMAIL_TO in .env).')    email_group.add_argument('--email-subject', help='Subject of the email (overrides EMAIL_SUBJECT in .env).')
 
     args = parser.parse_args()
     
@@ -398,7 +455,10 @@ def main():
     if not args.raw:  # Skip dependency check for raw mode (doesn't need API)
         check_dependencies()
 
-    fetch_recent_commits(args)
+    report = fetch_recent_commits(args)
+
+    if report and args.email:
+        send_email(report, args)
 
 if __name__ == "__main__":
     main()
